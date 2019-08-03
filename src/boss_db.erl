@@ -69,6 +69,7 @@
 -export_type([sort_order/0, eq_operatator/0, normal_operator/0]).
 
 -define(DEFAULT_TIMEOUT, (30 * 1000)).
+-define(CONNECTION_TIMEOUT_SEED, 1000).
 -define(POOLNAME, boss_db_pool).
 
 start(Options) ->
@@ -374,7 +375,7 @@ transaction(TransactionFun) ->
     transaction(TransactionFun, ?DEFAULT_TIMEOUT).
 
 transaction(TransactionFun, Timeout) ->
-    Worker = poolboy:checkout(?POOLNAME, true, Timeout),
+    {ok, Worker} = boss_pool:checkout_connected_worker(),
     State = gen_server:call(Worker, state, Timeout),
     put(boss_db_transaction_info, State),
     {reply, Reply, State} =
@@ -385,7 +386,7 @@ transaction(TransactionFun, Timeout) ->
     Reply.
 
 mock_transaction(TransactionFun) ->
-    Worker = poolboy:checkout(?POOLNAME, true, ?DEFAULT_TIMEOUT),
+        {ok, Worker} = boss_pool:checkout_connected_worker(),
     State = gen_server:call(Worker, state, ?DEFAULT_TIMEOUT),
     put(boss_db_transaction_info, State),
     TransactionFun(),

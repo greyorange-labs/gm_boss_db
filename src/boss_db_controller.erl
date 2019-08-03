@@ -96,8 +96,14 @@ init(Options) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+handle_call(state, _From, State) ->
+    {reply, State, State};
+
+handle_call({get_connection_state}, _Anyone, State) ->
+    {reply, State#state.connection_state, State};
+
 handle_call(_Anything, _Anyone, State) when State#state.connection_state /= connected ->
-    {reply, db_connection_down, State};
+    {reply, db_connection_down, State};    
 
 handle_call({find, Key}, From, #state{ cache_enable = true, cache_prefix = Prefix } = State) ->
     CacheResult = boss_cache:get(Prefix, Key),
@@ -204,11 +210,7 @@ handle_call({execute, Commands, Params}, _From, State) ->
 handle_call({transaction, TransactionFun}, _From, State) ->
     Adapter = State#state.adapter,
     Conn = State#state.write_connection,
-    {reply, Adapter:transaction(Conn, TransactionFun), State};
-
-handle_call(state, _From, State) ->
-    {reply, State, State}.
-
+    {reply, Adapter:transaction(Conn, TransactionFun), State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 handle_cast({try_connect, Options}, State) when State#state.connection_state /= connected ->

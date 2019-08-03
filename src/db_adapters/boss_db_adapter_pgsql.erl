@@ -420,7 +420,12 @@ build_conditions1([{Key, 'not_contains_all', Values}|Rest], Acc) when is_list(Va
 build_conditions1([{Key, 'contains_any', Values}|Rest], Acc) when is_list(Values) ->
     build_conditions1(Rest, add_cond(Acc, pack_tsvector(Key), "@@", pack_tsquery(Values, "|")));
 build_conditions1([{Key, 'contains_none', Values}|Rest], Acc) when is_list(Values) ->
-    build_conditions1(Rest, add_cond(Acc, pack_tsvector(Key), "@@", pack_tsquery_not(Values, "|"))).
+    build_conditions1(Rest, add_cond(Acc, pack_tsvector(Key), "@@", pack_tsquery_not(Values, "|")));
+build_conditions1([{Key, '@<', Value}|Rest], Acc) ->
+    build_conditions1(Rest, add_cond(Acc, pack_value(Value), '@>', Key));
+build_conditions1([{Key, Op, Value}|Rest], Acc) ->
+    build_conditions1(Rest, add_cond(Acc, Key, Op, pack_value(Value))).
+        
 
 add_cond(Acc, Key, Op, PackedVal) ->
     [lists:concat([Key, " ", Op, " ", PackedVal, " AND "])|Acc].
@@ -469,6 +474,8 @@ pack_value(undefined) ->
     "null";
 pack_value(V) when is_binary(V) ->
     pack_value(binary_to_list(V));
+pack_value(V) when is_atom(V) ->
+    atom_to_list(V);
 pack_value(V) when is_list(V) ->
     "'" ++ escape_sql(V) ++ "'";
 pack_value({MegaSec, Sec, MicroSec}) when is_integer(MegaSec) andalso is_integer(Sec) andalso is_integer(MicroSec) ->
