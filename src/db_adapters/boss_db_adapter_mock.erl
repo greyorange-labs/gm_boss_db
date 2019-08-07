@@ -3,7 +3,7 @@
 -behaviour(boss_db_adapter).
 -export([init/1, terminate/1, start/1, stop/0]).
 -export([find/2, find/7, count/3, counter/2, incr/3, delete/2, save_record/2]).
--export([push/2, pop/2, dump/1, transaction/2]).
+-export([push/2, pop/2, dump/1, execute/2, execute/3, transaction/2]).
 
 start(Options) ->
     case proplists:get_value(is_master_node, Options, true) of
@@ -52,6 +52,10 @@ pop(_, _Depth) ->
 
 dump(_) ->
     gen_server:call({global, boss_db_mock}, dump).
+
+execute(_, _) -> ok.
+
+execute(_, _, _) -> ok.
 
 transaction(_, TransactionFun) ->
     gen_server:call({global, boss_db_mock}, push),
