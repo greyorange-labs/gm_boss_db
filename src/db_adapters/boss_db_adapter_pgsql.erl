@@ -375,6 +375,8 @@ build_conditions1([], Acc) ->
 
 build_conditions1([{Key, 'equals', Value}|Rest], Acc) when Value == undefined ->
     build_conditions1(Rest, add_cond(Acc, Key, "is", pack_value(Value)));
+build_conditions1([{Key, 'equal', Value}|Rest], Acc) ->
+    build_conditions1([{Key, 'equals', Value}|Rest], Acc);
 build_conditions1([{Key, 'equals', Value}|Rest], Acc) ->
     build_conditions1(Rest, add_cond(Acc, Key, "=", pack_value(Value)));
 build_conditions1([{Key, 'not_equals', Value}|Rest], Acc) when Value == undefined ->
@@ -421,11 +423,27 @@ build_conditions1([{Key, 'contains_any', Values}|Rest], Acc) when is_list(Values
     build_conditions1(Rest, add_cond(Acc, pack_tsvector(Key), "@@", pack_tsquery(Values, "|")));
 build_conditions1([{Key, 'contains_none', Values}|Rest], Acc) when is_list(Values) ->
     build_conditions1(Rest, add_cond(Acc, pack_tsvector(Key), "@@", pack_tsquery_not(Values, "|")));
-build_conditions1([{Key, '@<', Value}|Rest], Acc) ->
-    build_conditions1(Rest, add_cond(Acc, pack_value(Value), '@>', Key));
 build_conditions1([{Key, Op, Value}|Rest], Acc) ->
-    build_conditions1(Rest, add_cond(Acc, Key, Op, pack_value(Value))).
-        
+    OpString = atom_to_list(Op),
+    OpActual =
+        case OpString of
+            "->>" ++ _ ->
+                {match, [Op1]} = re:run(OpString, "->>'\\w+'(.+)",
+                                [{capture, all_but_first,
+                                list}]),
+                list_to_atom(Op1);
+            _ ->
+                Op
+        end,
+    build_conditions1(Rest, add_cond(Acc, Key, Op, pack_val_for_op(Value, OpActual))).
+
+pack_val_for_op(Value, Op) when Op =:= 'in' -> 
+    pack_set(Value);
+pack_val_for_op(Value, Op) when Op =:= '?|';
+                                Op =:= '?&' -> 
+    pack_array(Value);
+pack_val_for_op(Value, _Op) ->
+    pack_value(Value).
 
 add_cond(Acc, Key, Op, PackedVal) ->
     [lists:concat([Key, " ", Op, " ", PackedVal, " AND "])|Acc].
@@ -441,6 +459,9 @@ pack_tsquery_not(Values, Op) ->
 
 pack_set(Values) ->
     "(" ++ string:join(lists:map(fun pack_value/1, Values), ", ") ++ ")".
+
+pack_array(Values) ->
+    "array[" ++ string:join(lists:map(fun pack_value/1, Values), ", ") ++ "]".
 
 pack_range(Min, Max) ->
     pack_value(Min) ++ " AND " ++ pack_value(Max).
