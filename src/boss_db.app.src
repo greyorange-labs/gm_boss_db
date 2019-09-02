@@ -13,6 +13,7 @@
         stdlib,
         crypto
     ]},
+    {included_applications, [tiny_pq]},
     {env, []},
     {maintainers, ["ErlyORM"]},
     {licenses, ["MIT/X11"]},
