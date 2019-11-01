@@ -428,7 +428,7 @@ build_conditions1([{Key, Op, Value}|Rest], Acc) ->
     OpActual =
         case OpString of
             "->>" ++ _ ->
-                {match, [Op1]} = re:run(OpString, "->>'\\w+'(.+)",
+                {match, [Op1]} = re:run(OpString, "->>'.+'(.+)",
                                 [{capture, all_but_first,
                                 list}]),
                 list_to_atom(Op1);
