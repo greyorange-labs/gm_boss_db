@@ -53,9 +53,9 @@ pop(_, _Depth) ->
 dump(_) ->
     gen_server:call({global, boss_db_mock}, dump).
 
-execute(_, _) -> ok.
+execute(_, _) -> {ok, [], []}.
 
-execute(_, _, _) -> ok.
+execute(_, _, _) -> {ok, [], []}.
 
 transaction(_, TransactionFun) ->
     gen_server:call({global, boss_db_mock}, push),
