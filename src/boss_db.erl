@@ -46,6 +46,9 @@
         execute/1,
         execute/2,
         execute/3,
+        execute_batch/1,
+        execute_batch/2,
+        execute_batch/3,
         transaction/1,
         transaction/2,
         mock_transaction/1,
@@ -368,6 +371,18 @@ execute(Commands, Params) when is_list(Params) ->
 
 execute(Commands, Params, Timeout) ->
     db_call({execute, Commands, Params}, Timeout).
+
+execute_batch(Batch) ->
+    db_call({execute_batch, Batch}, ?DEFAULT_TIMEOUT).
+
+execute_batch(Batch, Timeout) when is_integer(Timeout) ->
+    db_call({execute_batch, Batch}, Timeout);
+
+execute_batch(Statement, Batch) ->
+    execute_batch(Statement, Batch, ?DEFAULT_TIMEOUT).
+
+execute_batch(Statement, Batch, Timeout) ->
+    db_call({execute_batch, Statement, Batch}, Timeout).
 
 %% @spec transaction( TransactionFun::function() ) -> {atomic, Result} | {aborted, Reason}
 %% @doc Execute a fun inside a transaction.

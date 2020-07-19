@@ -172,6 +172,12 @@ execute(Conn, Commands) ->
 execute(Conn, Commands, Params) ->
     epgsql:equery(Conn, Commands, Params).
 
+execute_batch(Conn, Batch) ->
+    epgsql:execute_batch(Conn, Batch).
+
+execute_batch(Conn, Statement, Batch) ->
+    epgsql:execute_batch(Conn, Statement, Batch).
+
 transaction(Conn, TransactionFun) ->
     case epgsql:with_transaction(Conn, fun(_C) -> TransactionFun() end) of
         {rollback, Reason} -> {aborted, Reason};

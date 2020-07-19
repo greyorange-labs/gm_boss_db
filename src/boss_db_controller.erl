@@ -207,6 +207,16 @@ handle_call({execute, Commands, Params}, _From, State) ->
     Conn = State#state.write_connection,
     {reply, Adapter:execute(Conn, Commands, Params), State};
 
+handle_call({execute_batch, Batch}, _From, State) ->
+    Adapter = State#state.adapter,
+    Conn = State#state.write_connection,
+    {reply, Adapter:execute_batch(Conn, Batch), State};
+
+handle_call({execute_batch, Statement, Batch}, _From, State) ->
+    Adapter = State#state.adapter,
+    Conn = State#state.write_connection,
+    {reply, Adapter:execute_batch(Conn, Statement, Batch), State};
+
 handle_call({transaction, TransactionFun}, _From, State) ->
     Adapter = State#state.adapter,
     Conn = State#state.write_connection,
