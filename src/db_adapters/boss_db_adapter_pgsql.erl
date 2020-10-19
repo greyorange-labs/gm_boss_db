@@ -337,14 +337,14 @@ build_update_query(Record) ->
             ({id, _}, Acc) -> Acc;
             ({A, V}, {Attrs, Vals}) ->
                 DBColumn = proplists:get_value(A, AttributeColumns),
-                Value = case {boss_sql_lib:is_foreign_key(Type, A), V =/= undefined} of
-                    {true, true} ->
+                Value = case boss_sql_lib:is_foreign_key(Type, A) andalso V =/= undefined of
+                    true ->
                         {_, _, _, ForeignId} = boss_sql_lib:infer_type_from_id(V),
                         ForeignId;
-                    {_, false} ->
-                        null;
                     _ ->
-                        V
+                        case V of undefined -> null;
+                        _ -> V
+                        end
                 end,
                 {[DBColumn|Attrs], [Value|Vals]}
         end, {[], []}, Record:attributes()),
