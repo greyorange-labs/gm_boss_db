@@ -103,7 +103,7 @@ db_call(Msg) ->
 db_call(Msg, Timeout) when is_integer(Timeout), Timeout > 0 ->
     case erlang:get(boss_db_transaction_info) of
         undefined ->
-            boss_pool:call(?POOLNAME, Msg, ?DEFAULT_TIMEOUT);
+            boss_pool:call(get_pool_name(), Msg, ?DEFAULT_TIMEOUT);
         State ->
             {reply, Reply, NewState} =
                 boss_db_controller:handle_call(Msg, undefined, State),
@@ -384,29 +384,47 @@ execute_batch(Statement, Batch) ->
 execute_batch(Statement, Batch, Timeout) ->
     db_call({execute_batch, Statement, Batch}, Timeout).
 
+get_pool_name() ->
+    AppName =
+        case application:get_application() of
+            {ok, App} -> App;
+            _ -> undefined
+        end,
+    BossDBOptions = application:get_env(boss_db, boss_db_options, []),
+    AppPools = proplists:get_value(app_pools, BossDBOptions, #{}),
+    case maps:get(AppName, AppPools, undefined) of
+        undefined -> ?POOLNAME;
+        AppSpec ->
+            case maps:get(boss_db_pool, AppSpec, undefined) of
+                undefined -> ?POOLNAME;
+                _ ->
+                    list_to_atom(atom_to_list(AppName) ++ "_boss_db_pool")
+            end
+    end.
+
 %% @spec transaction( TransactionFun::function() ) -> {atomic, Result} | {aborted, Reason}
 %% @doc Execute a fun inside a transaction.
 transaction(TransactionFun) ->
     transaction(TransactionFun, ?DEFAULT_TIMEOUT).
 
 transaction(TransactionFun, Timeout) ->
-    {ok, Worker} = boss_pool:checkout_connected_worker(),
+    {ok, Worker} = boss_pool:checkout_connected_worker(get_pool_name()),
     State = gen_server:call(Worker, state, Timeout),
     put(boss_db_transaction_info, State),
     {reply, Reply, State} =
         boss_db_controller:handle_call({transaction, TransactionFun},
                                        undefined, State),
     put(boss_db_transaction_info, undefined),
-    poolboy:checkin(?POOLNAME, Worker),
+    poolboy:checkin(get_pool_name(), Worker),
     Reply.
 
 mock_transaction(TransactionFun) ->
-        {ok, Worker} = boss_pool:checkout_connected_worker(),
+    {ok, Worker} = boss_pool:checkout_connected_worker(get_pool_name()),
     State = gen_server:call(Worker, state, ?DEFAULT_TIMEOUT),
     put(boss_db_transaction_info, State),
     TransactionFun(),
     put(boss_db_transaction_info, undefined),
-    poolboy:checkin(?POOLNAME, Worker).
+    poolboy:checkin(get_pool_name(), Worker).
 
 %% @spec save_record( BossRecord ) -> {ok, SavedBossRecord} | {error, [ErrorMessages]}
 %% @doc Save (that is, create or update) the given BossRecord in the database.
