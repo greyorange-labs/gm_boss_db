@@ -26,9 +26,11 @@ init(StartArgs) ->
                     undefined -> SpecAcc;
                     SizeSpec ->
                         PoolName = list_to_atom(atom_to_list(App) ++ "_boss_db_pool"),
+                        AppBossDBOpts = maps:from_list(maps:get(boss_db_options, AppSpec, [])),
+                        FinalPoolStartArgs = maps:to_list(maps:merge(maps:from_list(StartArgs), AppBossDBOpts)),
                         PoolArgs = [{name, {local, PoolName}},
                                 {worker_module, boss_db_controller},
-                                {size, 5}, {max_overflow, 10}] ++ StartArgs ++ SizeSpec,
+                                {size, 5}, {max_overflow, 10}] ++ FinalPoolStartArgs ++ SizeSpec,
                         [{list_to_atom(atom_to_list(App) ++ "_db_controller"),
                             {poolboy, start_link, [PoolArgs]}, permanent, 2000, worker, [poolboy]} | SpecAcc]
                 end
