@@ -216,7 +216,7 @@ handle_call({execute_batch, Type, Statement, Batch}, _From, State) when is_atom(
 
 handle_call({transaction, Type, TransactionFun}, _From, State) when is_atom(Type) ->
     {Adapter, Conn, _} = db_for_type(Type, State),
-    {reply, Adapter:transaction(Conn, TransactionFun), State}.
+    {reply, Adapter:transaction(Conn, TransactionFun), State};
 
 handle_call({execute, Commands}, _From, State) ->
     Adapter = State#state.adapter,
