@@ -197,12 +197,33 @@ handle_call({table_exists, TableName}, _From, State) ->
     Conn = State#state.read_connection,
     {reply, Adapter:table_exists(Conn, TableName), State};
 
+
+handle_call({execute, Type, Commands}, _From, State) when is_atom(Type) ->
+    {Adapter, Conn, _} = db_for_type(Type, State),
+    {reply, Adapter:execute(Conn, Commands), State};
+
+handle_call({execute, Type, Commands, Params}, _From, State) when is_atom(Type) andalso is_list(Params) ->
+    {Adapter, Conn, _} = db_for_type(Type, State),
+    {reply, Adapter:execute(Conn, Commands, Params), State};
+
+handle_call({execute_batch, Type, Batch}, _From, State) when is_atom(Type) ->
+    {Adapter, Conn, _} = db_for_type(Type, State),
+    {reply, Adapter:execute_batch(Conn, Batch), State};
+
+handle_call({execute_batch, Type, Statement, Batch}, _From, State) when is_atom(Type) ->
+    {Adapter, Conn, _} = db_for_type(Type, State),
+    {reply, Adapter:execute_batch(Conn, Statement, Batch), State};
+
+handle_call({transaction, Type, TransactionFun}, _From, State) when is_atom(Type) ->
+    {Adapter, Conn, _} = db_for_type(Type, State),
+    {reply, Adapter:transaction(Conn, TransactionFun), State}.
+
 handle_call({execute, Commands}, _From, State) ->
     Adapter = State#state.adapter,
     Conn = State#state.write_connection,
     {reply, Adapter:execute(Conn, Commands), State};
 
-handle_call({execute, Commands, Params}, _From, State) ->
+handle_call({execute, Commands, Params}, _From, State) when is_list(Params) ->
     Adapter = State#state.adapter,
     Conn = State#state.write_connection,
     {reply, Adapter:execute(Conn, Commands, Params), State};
@@ -220,26 +241,6 @@ handle_call({execute_batch, Statement, Batch}, _From, State) ->
 handle_call({transaction, TransactionFun}, _From, State) ->
     Adapter = State#state.adapter,
     Conn = State#state.write_connection,
-    {reply, Adapter:transaction(Conn, TransactionFun), State};
-
-handle_call({execute, Type, Commands}, _From, State) ->
-    {Adapter, Conn, _} = db_for_type(Type, State),
-    {reply, Adapter:execute(Conn, Commands), State};
-
-handle_call({execute, Type, Commands, Params}, _From, State) ->
-    {Adapter, Conn, _} = db_for_type(Type, State),
-    {reply, Adapter:execute(Conn, Commands, Params), State};
-
-handle_call({execute_batch, Type, Batch}, _From, State) ->
-    {Adapter, Conn, _} = db_for_type(Type, State),
-    {reply, Adapter:execute_batch(Conn, Batch), State};
-
-handle_call({execute_batch, Type, Statement, Batch}, _From, State) ->
-    {Adapter, Conn, _} = db_for_type(Type, State),
-    {reply, Adapter:execute_batch(Conn, Statement, Batch), State};
-
-handle_call({transaction, Type, TransactionFun}, _From, State) ->
-    {Adapter, Conn, _} = db_for_type(Type, State),
     {reply, Adapter:transaction(Conn, TransactionFun), State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
