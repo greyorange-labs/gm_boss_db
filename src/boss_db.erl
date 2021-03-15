@@ -361,16 +361,26 @@ table_exists(TableName, Timeout) ->
 execute(Commands) ->
     execute(Commands, ?DEFAULT_TIMEOUT).
 
-%% @spec execute( Commands::iolist(), Params::list() ) -> RetVal
-%% @doc Execute database commands with interpolated parameters on SQL databases
 execute(Commands, Timeout) when is_integer(Timeout) ->
     db_call({execute, Commands}, Timeout);
+
+execute(Type, Commands) when is_atom(Type) ->
+    execute(Type, Commands, ?DEFAULT_TIMEOUT);
 
 execute(Commands, Params) when is_list(Params) ->
     execute(Commands, Params, ?DEFAULT_TIMEOUT).
 
+execute(Type, Commands, Timeout) when is_integer(Timeout) andalso is_atom(Type) ->
+    db_call({execute, Type, Commands}, Timeout);
+
+execute(Type, Commands, Params) when is_list(Params) andalso is_atom(Type) ->
+    execute(Type, Commands, Params, ?DEFAULT_TIMEOUT);
+
 execute(Commands, Params, Timeout) ->
     db_call({execute, Commands, Params}, Timeout).
+
+execute(Type, Commands, Params, Timeout) when is_atom(Type) ->
+    db_call({execute, Type, Commands, Params}, Timeout).
 
 execute_batch(Batch) ->
     db_call({execute_batch, Batch}, ?DEFAULT_TIMEOUT).
@@ -378,11 +388,23 @@ execute_batch(Batch) ->
 execute_batch(Batch, Timeout) when is_integer(Timeout) ->
     db_call({execute_batch, Batch}, Timeout);
 
+execute_batch(Type, Batch) when is_atom(Type) ->
+    db_call({execute_batch, Type, Batch}, ?DEFAULT_TIMEOUT);
+
 execute_batch(Statement, Batch) ->
     execute_batch(Statement, Batch, ?DEFAULT_TIMEOUT).
 
+execute_batch(Type, Batch, Timeout) when is_atom(Type) andalso is_integer(Timeout) ->
+    db_call({execute_batch, Type, Batch}, Timeout);
+
+execute_batch(Type, Statement, Batch) when is_atom(Type) ->
+    execute_batch(Type, Statement, Batch, ?DEFAULT_TIMEOUT);
+
 execute_batch(Statement, Batch, Timeout) ->
     db_call({execute_batch, Statement, Batch}, Timeout).
+
+execute_batch(Type, Statement, Batch, Timeout) when is_atom(Type) ->
+    db_call({execute_batch, Type, Statement, Batch}, Timeout).
 
 get_pool_name() ->
     AppName =
@@ -407,12 +429,26 @@ get_pool_name() ->
 transaction(TransactionFun) ->
     transaction(TransactionFun, ?DEFAULT_TIMEOUT).
 
-transaction(TransactionFun, Timeout) ->
+transaction(TransactionFun, Timeout) when is_integer(Timeout) ->
     {ok, Worker} = boss_pool:checkout_connected_worker(get_pool_name()),
     State = gen_server:call(Worker, state, Timeout),
     put(boss_db_transaction_info, State),
     {reply, Reply, State} =
         boss_db_controller:handle_call({transaction, TransactionFun},
+                                       undefined, State),
+    put(boss_db_transaction_info, undefined),
+    poolboy:checkin(get_pool_name(), Worker),
+    Reply;
+
+transaction(Type, TransactionFun) when is_atom(Type) ->
+    transaction(Type, TransactionFun, ?DEFAULT_TIMEOUT).
+
+transaction(Type, TransactionFun, Timeout) when is_atom(Type) andalso is_integer(Timeout) ->
+    {ok, Worker} = boss_pool:checkout_connected_worker(get_pool_name()),
+    State = gen_server:call(Worker, state, Timeout),
+    put(boss_db_transaction_info, State),
+    {reply, Reply, State} =
+        boss_db_controller:handle_call({transaction, Type, TransactionFun},
                                        undefined, State),
     put(boss_db_transaction_info, undefined),
     poolboy:checkin(get_pool_name(), Worker),
