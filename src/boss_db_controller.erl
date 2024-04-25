@@ -230,15 +230,18 @@ handle_cast({try_connect, Options}, State) when State#state.connection_state /= 
     CachePrefix = State#state.cache_prefix,
     try connections_for_adapter(Adapter, Options) of
     {ok, {ReadConn, WriteConn}} ->
+        lager:debug("Connection Success: ~p", [{ReadConn, WriteConn}]),
         {Shards, ModelDict} = make_shards(Options, Adapter),
         {noreply, #state{connection_state = connected, connection_delay = 1,
                  adapter = Adapter, read_connection = ReadConn, write_connection = WriteConn,
                  shards = lists:reverse(Shards), model_dict = ModelDict, options = Options,
                  cache_enable = CacheEnable, cache_ttl = CacheTTL, cache_prefix = CachePrefix }};
-    _Failure ->
+    Failure ->
+        lager:warning("Connection Error: ~p", [Failure]),
         reconnect_no_reply(Options, State, Adapter, CacheEnable, CacheTTL, CachePrefix)
     catch
-    _Error ->
+      Exception ->
+        lager:warning("Connection Exception: ~p", [Exception]),
         reconnect_no_reply(Options, State, Adapter, CacheEnable, CacheTTL, CachePrefix)
     end;
 
