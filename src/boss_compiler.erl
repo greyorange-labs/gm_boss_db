@@ -101,7 +101,8 @@ make_forms_by_version(NewForms, Version) when Version >= 16->
                                                 % boss_db_pmod_pt needs the form to end with {eof, 0} tagged tupple
     NewForms1 = NewForms ++ [{eof,0}],
                                                 % boss_db_pmod_pt needs the form to be in "new" format
-    {erl_syntax:revert_forms(erl_syntax:revert(NewForms1)), [boss_db_pmod_pt, boss_db_pt]};
+    RevertForms = erl_syntax:revert_forms(NewForms1),
+    {RevertForms, [boss_db_pmod_pt, boss_db_pt]};
 make_forms_by_version(NewForms, _Version) ->
     {erl_syntax:revert(NewForms), [boss_db_pt]}.
 

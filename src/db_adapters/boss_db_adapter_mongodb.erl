@@ -8,7 +8,7 @@
 -export([table_exists/2, get_migrations_table/1, migration_done/3]).
 
 -define(LOG(Name, Value), lager:debug("DEBUG: ~s: ~p~n", [Name, Value])).
--type maybe(X)   :: X|undefined.
+-type t_maybe(X)   :: X|undefined.
 -type error_m(X) :: X|{error, any()}.
 
 % Number of seconds between beginning of gregorian calendar and 1970
@@ -509,7 +509,7 @@ mongo_regex_options_for_re_module_options([multiline|Rest], Acc) ->
     mongo_regex_options_for_re_module_options(Rest, [$m|Acc]).
 
 % Boss and MongoDB have a different conventions to id attributes (id vs. '_id').
--spec attr_value(atom()|string(), proplist(atom()|string(),string())) -> maybe(string()).
+-spec attr_value(atom()|string(), proplist(atom()|string(),string())) -> t_maybe(string()).
 
 attr_value(id, MongoDoc) ->
     proplists:get_value('_id', MongoDoc);
