@@ -180,8 +180,20 @@ execute_batch(Conn, Statement, Batch) ->
 
 transaction(Conn, TransactionFun) ->
     case epgsql:with_transaction(Conn, fun(_C) -> TransactionFun() end) of
-        {rollback, Reason} -> {aborted, Reason};
-        Other -> {atomic, Other}
+        {rollback, {badmatch, {error, sync_required}} = Reason} ->
+            %% The connection lost protocol sync with Postgres (a previous command
+            %% errored mid-protocol, leaving unread bytes in the wire buffer).
+            %% epgsql blocks ALL commands on this connection until sync_required=false,
+            %% including the ROLLBACK already attempted inside with_transaction.
+            %% epgsql:sync/1 is the only command exempt from this gate — it sends
+            %% the protocol-level Sync message, receives ReadyForQuery, and clears
+            %% the flag before this connection is returned to the poolboy pool.
+            epgsql:sync(Conn),
+            {aborted, Reason};
+        {rollback, Reason} ->
+            {aborted, Reason};
+        Other ->
+            {atomic, Other}
     end.
 
 get_migrations_table(Conn) ->
