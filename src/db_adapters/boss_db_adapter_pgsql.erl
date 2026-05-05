@@ -180,8 +180,28 @@ execute_batch(Conn, Statement, Batch) ->
 
 transaction(Conn, TransactionFun) ->
     case epgsql:with_transaction(Conn, fun(_C) -> TransactionFun() end) of
-        {rollback, Reason} -> {aborted, Reason};
-        Other -> {atomic, Other}
+        {rollback, {badmatch, {error, sync_required}} = Reason} ->
+            %% The connection lost protocol sync with Postgres (a previous command
+            %% errored mid-protocol, leaving unread bytes in the wire buffer).
+            %% epgsql blocks ALL commands including the ROLLBACK that with_transaction
+            %% attempts in its catch block (epgsql.erl:476) — the result is discarded
+            %% and {rollback, Reason} is returned regardless, so ROLLBACK never reached
+            %% Postgres. Two independent states need resetting:
+            %% 1. epgsql client: epgsql:sync/1 sends the protocol-level Sync message,
+            %%    receives ReadyForQuery, and sets sync_required=false
+            %%    (epgsql_cmd_sync.erl:24). It is the only command exempt from the
+            %%    sync_required gate (epgsql_sock.erl:376-381).
+            %% 2. Postgres server: if BEGIN was sent before sync_required was triggered,
+            %%    the session still has an open transaction. epgsql:squery/2 sends
+            %%    ROLLBACK to close it. Safe unconditionally — a no-op warning if no
+            %%    transaction is open.
+            epgsql:sync(Conn),
+            epgsql:squery(Conn, "ROLLBACK"),
+            {aborted, Reason};
+        {rollback, Reason} ->
+            {aborted, Reason};
+        Other ->
+            {atomic, Other}
     end.
 
 get_migrations_table(Conn) ->
