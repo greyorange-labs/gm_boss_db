@@ -408,23 +408,41 @@ transaction(TransactionFun) ->
     transaction(TransactionFun, ?DEFAULT_TIMEOUT).
 
 transaction(TransactionFun, Timeout) ->
-    {ok, Worker} = boss_pool:checkout_connected_worker(get_pool_name()),
-    State = gen_server:call(Worker, state, Timeout),
-    put(boss_db_transaction_info, State),
-    {reply, Reply, State} =
-        boss_db_controller:handle_call({transaction, TransactionFun},
-                                       undefined, State),
-    put(boss_db_transaction_info, undefined),
-    poolboy:checkin(get_pool_name(), Worker),
-    Reply.
+    Pool = get_pool_name(),
+    {ok, Worker} = boss_pool:checkout_connected_worker(Pool),
+    try
+        State = gen_server:call(Worker, state, Timeout),
+        put(boss_db_transaction_info, State),
+        {reply, Reply, _NewState} =
+            boss_db_controller:handle_call({transaction, TransactionFun},
+                                           undefined, State),
+        Reply
+    catch
+        Class:Reason:Stacktrace ->
+            lager:error("#boss_db_transaction_failure transaction/2 failed worker=~p pool=~p ~p:~p~n~p",
+                        [Worker, Pool, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    after
+        erase(boss_db_transaction_info),
+        poolboy:checkin(Pool, Worker)
+    end.
 
 mock_transaction(TransactionFun) ->
-    {ok, Worker} = boss_pool:checkout_connected_worker(get_pool_name()),
-    State = gen_server:call(Worker, state, ?DEFAULT_TIMEOUT),
-    put(boss_db_transaction_info, State),
-    TransactionFun(),
-    put(boss_db_transaction_info, undefined),
-    poolboy:checkin(get_pool_name(), Worker).
+    Pool = get_pool_name(),
+    {ok, Worker} = boss_pool:checkout_connected_worker(Pool),
+    try
+        State = gen_server:call(Worker, state, ?DEFAULT_TIMEOUT),
+        put(boss_db_transaction_info, State),
+        TransactionFun()
+    catch
+        Class:Reason:Stacktrace ->
+            lager:error("#boss_db_transaction_failure mock_transaction/1 failed worker=~p pool=~p ~p:~p~n~p",
+                        [Worker, Pool, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    after
+        erase(boss_db_transaction_info),
+        poolboy:checkin(Pool, Worker)
+    end.
 
 %% @spec save_record( BossRecord ) -> {ok, SavedBossRecord} | {error, [ErrorMessages]}
 %% @doc Save (that is, create or update) the given BossRecord in the database.
