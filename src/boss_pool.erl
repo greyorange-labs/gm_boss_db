@@ -7,27 +7,49 @@
 
 call(Pool, Msg) ->
     Worker = poolboy:checkout(Pool),
-    Reply = gen_server:call(Worker, Msg),
-    poolboy:checkin(Pool, Worker),
-    Reply.
+    try
+        gen_server:call(Worker, Msg)
+    catch
+        Class:Reason:Stacktrace ->
+            lager:error("#boss_db_transaction_failure call/2 failed worker=~p pool=~p ~p:~p~n~p",
+                        [Worker, Pool, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    after
+        poolboy:checkin(Pool, Worker)
+    end.
 
 call(Pool, Msg, Timeout) ->
     case checkout_connected_worker(Pool) of
         {ok, Worker} ->
-            Reply = gen_server:call(Worker, Msg, Timeout),
-            poolboy:checkin(Pool, Worker),
-            Reply;
+            try
+                gen_server:call(Worker, Msg, Timeout)
+            catch
+                Class:Reason:Stacktrace ->
+                    lager:error("#boss_db_transaction_failure call/3 failed worker=~p pool=~p ~p:~p~n~p",
+                                [Worker, Pool, Class, Reason, Stacktrace]),
+                    erlang:raise(Class, Reason, Stacktrace)
+            after
+                poolboy:checkin(Pool, Worker)
+            end;
         Response -> Response
     end.
 
 %% @doc automatically checks in a worker if couldn't succeed in finding a connected one
 checkout_connected_worker(Pool) ->
     Worker = poolboy:checkout(Pool, true, ?GENSERVER_TIMEOUT),
-    case wait_until_connected(Worker) of
-        {ok, connected} -> {ok, Worker};
-        Response ->
+    try
+        case wait_until_connected(Worker) of
+            {ok, connected} -> {ok, Worker};
+            Response ->
+                poolboy:checkin(Pool, Worker),
+                Response
+        end
+    catch
+        Class:Reason:Stacktrace ->
             poolboy:checkin(Pool, Worker),
-            Response
+            lager:error("#boss_db_transaction_failure checkout_connected_worker failed worker=~p pool=~p ~p:~p~n~p",
+                        [Worker, Pool, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
     end.
 
 wait_until_connected(Worker) ->
